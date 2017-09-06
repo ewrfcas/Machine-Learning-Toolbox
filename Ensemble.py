@@ -9,7 +9,7 @@ def stacking_proba(clf,X_train,y,X_test,nfolds=5,random_seed=2017,return_score=F
     train_stacking_proba=np.zeros((X_train.shape[0],np.unique(y).shape[0]))
     score=0
     for i,(train_index, validate_index) in enumerate(folds.split(X_train, y)):
-        print(str(clf_name)+" folds:"+str(i)+"/"+str(nfolds))
+        print(str(clf_name)+" folds:"+str(i+1)+"/"+str(nfolds))
         X_train_fold=X_train[train_index,:]
         y_train_fold=y[train_index]
         X_validate_fold=X_train[validate_index,:]
@@ -39,6 +39,7 @@ def stacking_proba(clf,X_train,y,X_test,nfolds=5,random_seed=2017,return_score=F
 #clfs_name=list[name1,name2,...]
 def stacking(clfs,X_train,y,X_test,nfolds=5,stage=1,random_seed=2017,shuffle=True,clfs_name=None,final_clf=None):
     for s in range(stage):
+        print('stage:'+str(s+1)+'/'+str(stage))
         X_train_stack=[];X_test_stack=[]
         for i in len(clfs):
             [train_stacking_proba,test_stacking_proba]=stacking_proba(clfs[i],X_train,y,X_test,nfolds,
