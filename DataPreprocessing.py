@@ -1,7 +1,8 @@
 import numpy as np
 
 #binary
-def RandomUnderSampling(X,y,ratio=None,random_seed=2,replace=False):
+#ratio: majority'=(majority-minority)*ratio+minoirty
+def RandomUnderSampling(X,y,ratio=0,random_seed=2,replace=False):
     np.random.seed(random_seed)
     labels=np.unique(y)
     if len(np.where(y==labels[0])[0])>=len(np.where(y==labels[1])[0]):
@@ -16,9 +17,7 @@ def RandomUnderSampling(X,y,ratio=None,random_seed=2,replace=False):
         minority_num=y.shape[0]-majority_num
     majority_X=X[y==majority_label,:]
     minority_X=X[y==minority_label,:]
-    if ratio==None:
-        ratio=minority_num/majority_num
-    random_index=np.random.choice(np.arange(majority_num),majority_num*ratio,replace=replace)
+    random_index=np.random.choice(np.arange(majority_num),minority_num+(majority_num-minority_num)*ratio,replace=replace)
     majority_X=majority_X[random_index,:]
     final_X=np.concatenate((minority_X,majority_X),axis=0)
     final_y=np.ones(minority_num+majority_num*ratio)
