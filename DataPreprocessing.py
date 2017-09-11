@@ -17,7 +17,7 @@ def RandomUnderSampling(X,y,ratio=0,random_seed=2,replace=False):
         minority_num=y.shape[0]-majority_num
     majority_X=X[y==majority_label,:]
     minority_X=X[y==minority_label,:]
-    random_index=np.random.choice(np.arange(majority_num),minority_num+(majority_num-minority_num)*ratio,replace=replace)
+    random_index=np.random.choice(np.arange(majority_num),int(minority_num+(majority_num-minority_num)*ratio),replace=replace)
     majority_X=majority_X[random_index,:]
     final_X=np.concatenate((minority_X,majority_X),axis=0)
     final_y=np.ones(final_X.shape[0])
