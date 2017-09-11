@@ -20,7 +20,7 @@ def RandomUnderSampling(X,y,ratio=0,random_seed=2,replace=False):
     random_index=np.random.choice(np.arange(majority_num),minority_num+(majority_num-minority_num)*ratio,replace=replace)
     majority_X=majority_X[random_index,:]
     final_X=np.concatenate((minority_X,majority_X),axis=0)
-    final_y=np.ones(minority_num+majority_num*ratio)
+    final_y=np.ones(final_X.shape[0])
     final_y[0:minority_num]=final_y[0:minority_num] * minority_label
     final_y[minority_num:] = final_y[minority_num:] * majority_label
 
