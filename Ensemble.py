@@ -65,7 +65,7 @@ def stacking(clfs,X_train,y,X_test,nfolds=5,stage=1,random_seed=2017,shuffle=Tru
 
 #voting (all weights are the same)
 def vote_ensemble(clfs,X_train,y,X_test):
-    confidence=np.zeros(X_test.shape)
+    confidence = np.zeros((X_test.shape[0], len(np.unique(y))))
     for clf in clfs:
         clf.fit(X_train,y)
         confidence+=(clf.predict_proba(X_test))
