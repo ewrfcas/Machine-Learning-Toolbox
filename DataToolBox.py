@@ -2,6 +2,14 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
+#minmax normalization
+def minmax_norm(X):
+    return (X-np.min(X))/(np.max(X)-np.min(X))
+
+#z-score normalization
+def zscore_norm(X):
+    return (X-np.mean(X))/np.std(X)
+
 #计算acc
 def get_acc(real_label,predict_label):
     return len(np.nonzero(real_label-predict_label==0)[0])/len(real_label)
