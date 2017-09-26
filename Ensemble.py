@@ -72,4 +72,16 @@ def vote_ensemble(clfs,X_train,y,X_test):
     confidence/=len(clfs)
     return np.argmax(confidence,axis=0),confidence
 
+#adaBoost return 'clf_coef' as the weights of classifications and 'data_coef' as the weights of samples
+def AdaBoost(clf,validation_data,validation_label,sample_weights=None,metric='acc'):
+    if sample_weights==None:
+        sample_weights=np.ones(validation_data.shape[0])/validation_data.shape[0]
+    predict_label=clf.predict(validation_data)
+    e=sample_weights*(validation_label-predict_label)
+    clf_coef=0.5*np.log((1-e)/e)
+    Z=np.sum(sample_weights*np.exp(-1*clf_coef*validation_label*predict_label))
+    data_coef=(sample_weights*np.exp(-1*clf_coef*validation_label*predict_label))/Z
+
+    return clf_coef,data_coef
+
 
