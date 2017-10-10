@@ -29,8 +29,8 @@ def get_macc(real_label, predict_label):
     m_acc = (tp + tn) / 2
     return tp,tn,m_acc
 
-# 二分类，返回[多数类，少数类，多数类类标，少数类类标]
-def divide_data(data, label):
+# 二分类，返回[多数类，少数类，多数类类标，少数类类标] 可返回index
+def divide_data(data, label,return_index=False):
     labels=	np.unique(label)
     n1 = len(np.nonzero(label == labels[0])[0])
     n2 = len(np.nonzero(label == labels[1])[0])
@@ -41,10 +41,14 @@ def divide_data(data, label):
     else:
         less_label = labels[0]
         much_label = labels[1]
+    if return_index:
+        data_much_index = np.nonzero(label != less_label)[0]
+        data_less_index = np.nonzero(label == less_label)[0]
+        return data_much_index, data_less_index, much_label, less_label
+
     # 分离多数类和少数类
     data_much = data[np.nonzero(label!=less_label)[0],:]
     data_less = data[np.nonzero(label==less_label)[0],:]
-
     return data_much,data_less,much_label,less_label
 
 # 随机下采样Random UnderSampling
