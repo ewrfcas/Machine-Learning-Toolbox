@@ -79,3 +79,12 @@ def ROS(data_much, data_less, much_label, less_label):
     train_label_temp=np.hstack((train_label_temp,np.ones((1,much_num))*less_label))
 
     return train_data_temp,train_label_temp
+
+#PAC-Bayes bund
+#2分类
+def PAC_Bayes(real_label,pred,rou=0.05):
+    m=pred.shape[0]
+    KL=pred
+    KL[:,0]=-1*np.log(KL[:,0]*(1-real_label)+0.00001)
+    KL[:,1]=-1*np.log(KL[:,1]*real_label+0.00001)
+    return (np.sum(KL)+np.log((m+1)/rou))/m
