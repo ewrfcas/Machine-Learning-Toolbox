@@ -83,11 +83,11 @@ def ROS(data_much, data_less, much_label, less_label):
 #PAC-Bayes bund
 #2分类
 def PAC_Bayes(real_label,pred,rou=0.05):
-    m=pred.shape[0]
-    KL=pred
-    KL[:,0]=-1*(1-real_label)*np.log(KL[:,0]+0.00001)
-    KL[:,1]=-1*real_label*np.log(KL[:,1]+0.00001)
-    pac=(np.sum(KL)+np.log((m+1)/rou))/m
+    m = pred.shape[0]
+    KL = pred
+    KL[:, 0] = -1 * (1 - real_label) * np.log(KL[:, 0] + 0.00001)
+    KL[:, 1] = -1 * real_label * np.log(KL[:, 1] + 0.00001)
+    pac = (np.sum(KL) + np.log((m + 1) / rou)) / m
     return pac
 
 def cross_entropy_loss(real_label,pred):
