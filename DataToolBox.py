@@ -29,6 +29,15 @@ def get_macc(real_label, predict_label):
     m_acc = (tp + tn) / 2
     return tp,tn,m_acc
 
+#计算f1score
+#默认少数类为1
+def f1score(real_label, predict_label,min_label=1):
+    n1 = len(np.nonzero(real_label == min_label)[0])
+    tp_temp = sum(predict_label[np.nonzero(real_label == min_label)[0]] == min_label)
+    recall=tp_temp/n1
+    precision=tp_temp/len(np.nonzero(predict_label==min_label)[0])
+    return 2*(recall*precision)/(recall+precision)
+
 # 二分类，返回[多数类，少数类，多数类类标，少数类类标] 可返回index
 def divide_data(data, label,return_index=False):
     labels=	np.unique(label)
