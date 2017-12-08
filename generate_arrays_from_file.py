@@ -52,7 +52,8 @@ def generate_for_lung(file_list, label_list, batch_size):
         y = []
         for i,path in enumerate(file_list):
             file=h5py.File(path, 'r')
-            x_temp = file['data']
+            x_temp = np.array(file['data'])
+            x_temp = np.resize(x_temp,(128,128,128))
             file.close()
             y_temp = int(label_list[i])
             count += 1
@@ -60,7 +61,7 @@ def generate_for_lung(file_list, label_list, batch_size):
             y.append(y_temp)
             if count == batch_size:
                 x = np.concatenate(x)
-                x = np.resize(x,(batch_size,128,128,128))
+                x = np.reshape(x,(batch_size,128,128,128))
                 y = np.array(y)
                 yield x, y
                 x = []
