@@ -2,6 +2,7 @@ import numpy as np
 from keras import utils
 import os
 import h5py
+from skimage import io
 def generate_arrays_from_file(path):
     while True:
         f = open(path)
@@ -34,7 +35,7 @@ def generate_pics_from_file(path):
         count=0
         x=[]
         for pic in os.listdir(path):
-            img = cv.imread(path+"/"+pic)
+            img = io.imread(path+"/"+pic)
             img= cv.resize(img,(32,32))
             x.append(img)
             count+=1
@@ -67,3 +68,40 @@ def generate_for_lung(file_list, label_list, batch_size):
                 x = []
                 y = []
                 count = 0
+
+#generator for image
+def generate_for_kp(file_list, label_list, batch_size):
+    while True:
+        count = 0
+        x, y = [], []
+        for i, path in enumerate(file_list):
+            img = io.imread(path)
+            img = np.array(img)
+            x_temp = img / 255.0
+            y_temp = (label_list[i, :] - 48.0) / 48.0
+            count += 1
+            x.append(x_temp)
+            y.append(y_temp)
+            if count % batch_size == 0 and count != 0:
+                x = np.array(x)
+                x = x.reshape(batch_size, 96, 96, 1).astype("float32")
+                y = np.array(y)
+                yield x, y
+                x, y = [], []
+
+
+def generate_for_kp_test(file_list, batch_size):
+    while True:
+        count = 0
+        x = []
+        for path in file_list:
+            img = io.imread(path)
+            img = np.array(img)
+            x_temp = img / 255.0
+            count += 1
+            x.append(x_temp)
+            if count % batch_size == 0 and count != 0:
+                x = np.array(x)
+                x = x.reshape(batch_size, 96, 96, 1).astype("float32")
+                yield x
+                x = []
