@@ -75,6 +75,7 @@ def generate_for_kp(file_list, label_list, batch_size, shuffle=True, random_seed
         #洗牌
         if shuffle:
             if random_seed!=None:
+                random_seed+=1
                 np.random.seed(random_seed)
             index=np.arange(file_list.shape[0])
             np.random.shuffle(index)
