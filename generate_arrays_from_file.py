@@ -69,22 +69,30 @@ def generate_for_lung(file_list, label_list, batch_size):
                 y = []
                 count = 0
 
-#generator for image
-def generate_for_kp(file_list, label_list, batch_size):
+#生成器generator for image with shuffle
+def generate_for_kp(file_list, label_list, batch_size, shuffle=True, random_seed=None):
     while True:
+        #洗牌
+        if shuffle:
+            if random_seed!=None:
+                np.random.seed(random_seed)
+            index=np.arange(file_list.shape[0])
+            np.random.shuffle(index)
+            file_list=file_list[index]
+            label_list=label_list[index]
         count = 0
         x, y = [], []
-        for i, path in enumerate(file_list):
-            img = io.imread(path)
+        for i,path in enumerate(file_list):
+            img=io.imread(path)
             img = np.array(img)
-            x_temp = img / 255.0
-            y_temp = (label_list[i, :] - 48.0) / 48.0
+            x_temp=img/255.0
+            y_temp=label_list[i,:]
             count += 1
             x.append(x_temp)
             y.append(y_temp)
             if count % batch_size == 0 and count != 0:
                 x = np.array(x)
-                x = x.reshape(batch_size, 96, 96, 1).astype("float32")
+                x = x.reshape(batch_size, 96, 96, 3).astype("float32")
                 y = np.array(y)
                 yield x, y
                 x, y = [], []
