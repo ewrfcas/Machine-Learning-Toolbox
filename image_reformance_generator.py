@@ -1,4 +1,4 @@
-from skimage import io
+from skimage import io,transform
 import numpy as np
 from keras.preprocessing import image
 
@@ -59,6 +59,48 @@ def rotate(x, y=None, rotate_limit=0, row_axis=0, col_axis=1, channel_axis=2, fi
         y[25:30] = y_1[1, 10:15]
         y[30:35] = y_1[0, 15:20]
         y[35:40] = y_1[1, 15:20]
+
+    return x, y
+
+
+# 90°,180°,270°旋转图片x,同时旋转关键点y(!!!!!!y尺寸为1：1且范围为0:1!!!!!)
+def rotate90n(x, y=None):
+    theta = np.random.choice(np.arange(0, 4), 1) * 90
+    x = transform.rotate(x, theta)
+    if theta == 180:
+        y = 1 - y
+    elif theta == 90:
+        y_t = y[0:5].copy()
+        y[0:5] = y[5:10]
+        y[5:10] = 1 - y_t
+
+        y_t = y[10:15].copy()
+        y[10:15] = y[15:20]
+        y[15:20] = 1 - y_t
+
+        y_t = y[20:25].copy()
+        y[20:25] = y[25:30]
+        y[25:30] = 1 - y_t
+
+        y_t = y[30:35].copy()
+        y[30:35] = y[35:40]
+        y[35:40] = 1 - y_t
+    elif theta == 270:
+        y_t = y[0:5].copy()
+        y[0:5] = 1 - y[5:10]
+        y[5:10] = y_t
+
+        y_t = y[10:15].copy()
+        y[10:15] = 1 - y[15:20]
+        y[15:20] = y_t
+
+        y_t = y[20:25].copy()
+        y[20:25] = 1 - y[25:30]
+        y[25:30] = y_t
+
+        y_t = y[30:35].copy()
+        y[30:35] = 1 - y[35:40]
+        y[35:40] = y_t
 
     return x, y
 
