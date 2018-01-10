@@ -83,6 +83,7 @@ def model(input_shape=(128, 128, 1), labels=40, nstack=6, level=4, filters=256, 
 
     return model
 
+# test test
 model=model((64,64,3),labels=10,preprocess=False)
 optimizer = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 model.compile(loss='mse', optimizer=optimizer)
