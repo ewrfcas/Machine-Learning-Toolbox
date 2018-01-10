@@ -1,6 +1,8 @@
 from keras.layers import *
 from keras.models import *
 from keras import layers
+from keras.optimizers import *
+import numpy as np
 
 def preprocess_numpy_input(x):
     x /= 127.5
@@ -14,10 +16,10 @@ def Residual(x, filters):
     # Residual block
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = Conv2D(filters / 2, (1, 1), padding='same', use_bias=False)(x)
+    x = Conv2D(int(filters / 2), (1, 1), padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = Conv2D(filters / 2, (3, 3), padding='same', use_bias=False)(x)
+    x = Conv2D(int(filters / 2), (3, 3), padding='same', use_bias=False)(x)
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = Conv2D(filters, (1, 1), padding='same', use_bias=False)(x)
@@ -55,10 +57,10 @@ def model(input_shape=(128, 128, 1), labels=40, nstack=6, level=4, filters=256, 
     # 64*64
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
-    x = Residual(x, filters/2)
+    x = Residual(x, int(filters/2))
     x = MaxPooling2D()(x)
     # 32*32
-    x = Residual(x, filters/2)
+    x = Residual(x, int(filters/2))
     middle_x = Residual(x, filters)
     outputs=[]
 
@@ -80,3 +82,10 @@ def model(input_shape=(128, 128, 1), labels=40, nstack=6, level=4, filters=256, 
     model = Model(img_input, outputs, name='hourglass')
 
     return model
+
+model=model((64,64,3),labels=10,preprocess=False)
+optimizer = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
+model.compile(loss='mse', optimizer=optimizer)
+X_train=np.random.random((1000,64,64,3))
+y=np.random.random((1000,16,16,10))
+model.fit(X_train,[y,y,y,y,y,y],verbose=1)
