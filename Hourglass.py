@@ -1,11 +1,20 @@
 from keras.layers import *
 from keras.models import *
 from keras import layers
-from keras.optimizers import *
-import numpy as np
 from skimage import io
 
 # heatmaps
+def makeGaussian(height, width, sigma = 2, center=None):
+    x = np.arange(0, width, 1, float)
+    y = np.arange(0, height, 1, float)[:, np.newaxis]
+    if center is None:
+        x0 =  width // 2
+        y0 = height // 2
+    else:
+        x0 = center[0]
+        y0 = center[1]
+    return np.exp(-4*np.log(2) * ((x-x0)**2 + (y-y0)**2) / sigma**2)
+
 # xrange 有效像素点范围
 def get_heatmaps(labels, size=(64, 64), xrange=1):
     life_x = labels[0:5]
@@ -20,10 +29,9 @@ def get_heatmaps(labels, size=(64, 64), xrange=1):
     y_all=np.concatenate((life_y,int_y,aff_y,finger_y))
     heatmaps=np.zeros((size[0],size[0],len(x_all)))
     for i in range(len(x_all)):
-        heatmap=np.zeros(size)
-        x=int(x_all[i]*size[0])
-        y=int(y_all[i]*size[1])
-        heatmap[max(0,x-xrange):min(size[0],(x+xrange+1)),max(0,y-xrange):min(size[1],(y+xrange+1))]=1
+        x=int(x_all[i]*size[1])
+        y=int(y_all[i]*size[0])
+        heatmap=makeGaussian(size[0], size[1], sigma = 2, center=[x,y])
         heatmaps[:,:,i]=heatmap
 
     return heatmaps
@@ -79,24 +87,29 @@ def Residual(x, filters):
 
     return x
 
-def Hourglass(x, level, filters):
+def Hourglass(x, level, module, filters):
     # up layer
-    up = Residual(x, filters)
+    for i in range(module):
+        x = Residual(x, filters)
+    up = x
 
     # low layer
     low = MaxPooling2D()(x)
-    low = Residual(low, filters)
-    if level>1:
-        low = Hourglass(low, level-1, filters)
-    else:
+    for i in range(module):
         low = Residual(low, filters)
-    low = Residual(low, filters)
+    if level>1:
+        low = Hourglass(low, level-1, module, filters)
+    else:
+        for i in range(module):
+            low = Residual(low, filters)
+    for i in range(module):
+        low = Residual(low, filters)
     low = UpSampling2D()(low)
     x = layers.add([up, low])
 
     return x
 
-def model(input_shape=(128, 128, 1), labels=40, nstack=6, level=4, filters=256, preprocess=True):
+def model(input_shape=(256, 256, 1), labels=20, nstack=6, level=4, module=1, filters=256, preprocess=True):
     img_input = Input(shape=input_shape)
 
     if preprocess:
@@ -104,21 +117,22 @@ def model(input_shape=(128, 128, 1), labels=40, nstack=6, level=4, filters=256, 
     else:
         x = img_input
 
-    # 128*128
+    # 256*256
     x = Conv2D(64, (7, 7), strides=2, padding='same', use_bias=False)(x)
-    # 64*64
+    # 128*128
     x = BatchNormalization()(x)
     x = Activation('relu')(x)
     x = Residual(x, int(filters/2))
     x = MaxPooling2D()(x)
-    # 32*32
+    # 64*64
     x = Residual(x, int(filters/2))
     middle_x = Residual(x, filters)
     outputs=[]
 
     for i in range(nstack):
-        x = Hourglass(middle_x, level, filters)
-        x = Residual(x, filters)
+        x = Hourglass(middle_x, level, module, filters)
+        for j in range(module):
+            x = Residual(x, filters)
         x = Conv2D(filters, (1, 1), padding='same', use_bias=False)(x)
         x = BatchNormalization()(x)
         x = Activation('relu')(x)
@@ -127,18 +141,10 @@ def model(input_shape=(128, 128, 1), labels=40, nstack=6, level=4, filters=256, 
 
         if i < nstack-1:
             x = Conv2D(filters, (1, 1), padding='same')(x)
-            temp_output_ = Conv2D(filters, (1, 1), padding='same')(temp_output)
-            middle_x = layers.add([middle_x, x, temp_output_])
+            temp_output = Conv2D(filters, (1, 1), padding='same')(temp_output)
+            middle_x = layers.add([middle_x, x, temp_output])
 
     # Create model.
     model = Model(img_input, outputs, name='hourglass')
 
     return model
-
-# test test
-model=model((64,64,3),labels=10,preprocess=False)
-optimizer = Adam(lr=0.01, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
-model.compile(loss='mse', optimizer=optimizer)
-X_train=np.random.random((1000,64,64,3))
-y=np.random.random((1000,16,16,10))
-model.fit(X_train,[y,y,y,y,y,y],verbose=1)
