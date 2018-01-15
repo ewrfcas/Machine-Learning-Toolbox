@@ -1,6 +1,7 @@
 from keras.layers import *
 from keras.models import *
 from keras import layers
+from keras.optimizers import *
 from skimage import io
 
 # heatmaps
@@ -148,3 +149,11 @@ def model(input_shape=(256, 256, 1), labels=20, nstack=6, level=4, module=1, fil
     model = Model(img_input, outputs, name='hourglass')
 
     return model
+
+# test test
+model=model((64,64,3),labels=10,preprocess=False)
+optimizer = Adam(lr=0.0003, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
+model.compile(loss='mse', optimizer=optimizer)
+X_train=np.random.random((1000,64,64,3))
+y=np.random.random((1000,16,16,10))
+model.fit(X_train,[y,y,y,y,y,y],verbose=1)
