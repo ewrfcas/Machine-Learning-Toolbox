@@ -1,8 +1,8 @@
-from skimage import io,transform
+from skimage import io
 import numpy as np
 import keras
 
-#生成器generator for imbalanced data，每个batch中样本等量
+# 生成器generator for imbalanced data，每个batch中样本等量
 def generator_train(file_list, label_list, batch_size, shuffle=True, random_seed=None, imbalance=True):
     while True:
         if shuffle:
@@ -16,7 +16,7 @@ def generator_train(file_list, label_list, batch_size, shuffle=True, random_seed
         count = 0
         label_true=keras.utils.to_categorical(np.array(label_list))
         x, y = [], []
-        if imbalance:#batch内样本不同类别平衡
+        if imbalance: # batch内样本不同类别平衡
             labels=np.unique(label_list)
             index_list=[]
             max_num=0
@@ -24,10 +24,10 @@ def generator_train(file_list, label_list, batch_size, shuffle=True, random_seed
                 index_list.append(np.where(label_list==l)[0])
                 if len(np.where(label_list==l)[0])>max_num:
                     max_num=len(np.where(label_list==l)[0])
-            for i in range(max_num):#i保持循环到最多的类结束为止
-                for j in range(len(index_list)):#不同类别各取一个
-                    if i%len(index_list[j])==0 and i!=0:#当这个类别已经循环了一遍了
-                        np.random.shuffle(index_list[j])#需要洗牌这个类别
+            for i in range(max_num): # i保持循环到最多的类结束为止
+                for j in range(len(index_list)): # 不同类别各取一个
+                    if i%len(index_list[j])==0 and i!=0: # 当这个类别已经循环了一遍了
+                        np.random.shuffle(index_list[j]) # 需要洗牌这个类别
                     x_temp=io.imread(file_list[index_list[j][i%len(index_list[j])]])
                     y_temp=label_true[index_list[j][i%len(index_list[j])],:]
                     count+=1
@@ -39,7 +39,7 @@ def generator_train(file_list, label_list, batch_size, shuffle=True, random_seed
                         y = np.array(y)
                         yield x, y
                         x, y = [], []
-        else:#for validation
+        else: # for validation
             for i,path in enumerate(file_list):
                 x_temp = io.imread(path)
                 y_temp=label_true[i,:]
