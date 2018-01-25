@@ -31,3 +31,19 @@ clf.fit(X,y)
 clf.predict(X)
 
 clf.predict_proba(X)
+
+## 4.generator
+generator for keras/tensorflow (enhanced,imbalanced data)
+
+## 5.metrics
+tpr tnr for keras/tensorflow
+
+## 6.loss
+
+### (1) focal loss
+
+### (2) center loss
+
+### (3) triplet loss
+
+### (4) island loss
