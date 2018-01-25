@@ -1,9 +1,6 @@
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import numpy as np
-
-a='abcd'
-b='xyz'
-if a>b:
-    print(1)
-else:
-    print(2)
+from keras.layers import *
+a=np.array([1,2])
+b=np.array([2,3])
+print(np.dot(a,b))
+Masking
