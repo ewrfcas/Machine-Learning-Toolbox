@@ -34,12 +34,16 @@ def island_loss(features, label, alpha, nrof_classes, lamda1=10):
     for i in range(nrof_classes):
         for j in range(nrof_classes):
             if i!=j:
-                diff2[i, :] = tf.add((centers[i, :] / tf.sqrt(tf.reduce_sum(tf.square(centers[i, :]))) * tf.sqrt(
-                    tf.reduce_sum(tf.square(centers[j, :]))))
-                                     - tf.multiply((tf.reduce_sum(tf.multiply(centers[i, :], centers[j, :])) / tf.sqrt(
-                    tf.reduce_sum(tf.square(centers[i, :]))) *
-                                                    tf.pow(tf.sqrt(tf.reduce_sum(tf.square(centers[j, :]))), 3)),
-                                                   centers[j, :]), diff2[i, :])
+                diff2 = tf.scatter_add(diff2, i,
+                                       (tf.gather(centers, i) / tf.sqrt(
+                                           tf.reduce_sum(tf.square(tf.gather(centers, i)))) * tf.sqrt(
+                                           tf.reduce_sum(tf.square(tf.gather(centers, j)))))
+                                       - tf.multiply(
+                                           (tf.reduce_sum(
+                                               tf.multiply(tf.gather(centers, i), tf.gather(centers, j))) / tf.sqrt(
+                                               tf.reduce_sum(tf.square(tf.gather(centers, i)))) *
+                                            tf.pow(tf.sqrt(tf.reduce_sum(tf.square(tf.gather(centers, j)))), 3)),
+                                           tf.gather(centers, j)))
     diff2 = diff2 * lamda1 / (nrof_classes - 1)
     diff2 = alpha * diff2
 
@@ -51,9 +55,9 @@ def island_loss(features, label, alpha, nrof_classes, lamda1=10):
     for i in range(nrof_classes):
         for j in range(nrof_classes):
             if i!=j:
-                loss2 = tf.add(tf.add(tf.reduce_sum(tf.multiply(centers[i, :], centers[j, :])) / (
-                        tf.sqrt(tf.reduce_sum(tf.square(centers[i, :]))) *
-                        tf.sqrt(tf.reduce_sum(tf.square(centers[j, :])))), tf.ones(1)), loss2)
+                loss2 = tf.add(tf.add(tf.reduce_sum(tf.multiply(tf.gather(centers, i), tf.gather(centers, j))) / (
+                        tf.sqrt(tf.reduce_sum(tf.square(tf.gather(centers, i)))) *
+                        tf.sqrt(tf.reduce_sum(tf.square(tf.gather(centers, j))))), tf.ones(1)), loss2)
     loss2 = lamda1 * loss2
 
     loss = tf.add(loss1,loss2)
