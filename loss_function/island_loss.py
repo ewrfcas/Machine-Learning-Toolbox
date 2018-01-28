@@ -3,16 +3,13 @@ import tensorflow as tf
 # example:
 # https://github.com/godfanmiao/MNIST_CNN_CENTERLOSS_TENSORFLOW/blob/master/MNIST_CNN_BN_CENTERLOSS.ipynb
 
-def island_loss(features, label, alpha, nrof_classes, lamda1=10):
+def island_loss(features, label, alpha, nrof_classes, nrof_features, lamda1=10):
     """Center loss based on the paper "Island Loss for Learning Discriminative Features in Facial Expression Recognition"
        (https://github.com/SeriaZheng/EmoNet/blob/master/loss_function/loss_paper/Island_loss.pdf)
     """
-    # 获取特征向量长度
-    nrof_features = features.get_shape()[1]
-
-    # 生成可以共享的变量centers，由于center loss在计算图中只存在于一个节点处，因此这个变量只使用一次
-    centers = tf.get_variable('centers', [nrof_classes, nrof_features], dtype=tf.float32,
-        initializer=tf.constant_initializer(0), trainable=False)
+    # 生成可以共享的变量centers
+    with tf.variable_scope('center', reuse=True):
+        centers = tf.get_variable('centers')
     label = tf.reshape(label, [-1])
 
     # 取出对应label下对应的center值，注意label里面的值可能会重复，因为一个标签下有可能会出现多个人
@@ -30,7 +27,8 @@ def island_loss(features, label, alpha, nrof_classes, lamda1=10):
     diff1 = alpha * diff1
 
     # diff2为island loss的center更新项
-    diff2 = tf.zeros((nrof_classes, nrof_features))
+    diff2 = tf.get_variable('diff2', [nrof_classes, nrof_features], dtype=tf.float32,
+                              initializer=tf.constant_initializer(0), trainable=False)
     for i in range(nrof_classes):
         for j in range(nrof_classes):
             if i!=j:

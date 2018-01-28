@@ -11,10 +11,9 @@ def center_loss(features, label, alpha, nrof_classes):
     # 获取特征向量长度
     nrof_features = features.get_shape()[1]
 
-    # 生成可以共享的变量centers，由于center loss在计算图中只存在于一个节点处，因此这个变量只使用一次
-    # 不需要所谓的variable_scope，就可以实现每次共享？
-    centers = tf.get_variable('centers', [nrof_classes, nrof_features], dtype=tf.float32,
-        initializer=tf.constant_initializer(0), trainable=False)
+    # 生成可以共享的变量centers
+    with tf.variable_scope('center', reuse=True):
+        centers = tf.get_variable('centers')
     label = tf.reshape(label, [-1])
 
     # 取出对应label下对应的center值，注意label里面的值可能会重复，因为一个标签下有可能会出现多个人
