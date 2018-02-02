@@ -66,11 +66,14 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 # train
 train_step = tf.train.AdamOptimizer(1e-4).minimize(softmax_loss)
 
-n_epochs = 5
+n_epochs = 50
 batch_size = 128
 n_batch = int(X_train.shape[0] / batch_size)
 n_batch_val = int(X_test.shape[0] / batch_size)
 sess.run(tf.global_variables_initializer())
+early_stop=10
+best_val_acc=0
+patience=0
 for epoch in range(n_epochs):
     # training step
     index = np.arange(X_train.shape[0])
@@ -107,3 +110,16 @@ for epoch in range(n_epochs):
               (i + 1, n_batch_val, sum_loss / (i + 1), sum_acc / (i + 1)), \
               end='      ', flush=True)
     print('\n')
+
+    # early stop
+    if sum_acc / (n_batch_val) > best_val_acc:
+        patience = 0
+        print(str(round(sum_acc, 2)) + '% > ' + str(round(best_val_acc, 2)) + '%', 'patience:', patience)
+        best_val_acc = sum_acc / (n_batch_val)
+    else:
+        patience += 1
+        print(str(round(sum_acc, 2)) + '% <= ' + str(round(best_val_acc, 2)) + '%', 'patience:', patience)
+    if patience > early_stop:
+        print('early stopping!')
+        break
+
