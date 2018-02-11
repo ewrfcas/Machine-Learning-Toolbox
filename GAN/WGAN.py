@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage import io,transform
 from keras.initializers import RandomNormal
+#plt.switch_backend('agg')
 conv_init = RandomNormal(0, 0.02)
 
 class WGAN():
@@ -79,12 +80,11 @@ class WGAN():
             loss_real_all=0
             loss_fake_all=0
             loss_D_all=0
-            loss_G_all=0
             j = 0
             print('epochs:' + str(i + 1) + '/' + str(epochs))
             d_print = '\r[steps:%d/%d (diters:%d/%d)] loss_real: %.6f, loss_fake: %.6f, loss_D: %.6f' % (
                 j, batches, 0, 0, loss_real_all, loss_fake_all, loss_D_all)
-            g_print = '   [gen_iterations:%d] loss_G: %.6f' % (gen_iterations, loss_G_all)
+            g_print = '   [gen_iterations:%d] loss_G: %.6f' % (gen_iterations, 0)
             if shuffle:
                 np.random.shuffle(train_index)
             while j < batches:
@@ -109,7 +109,7 @@ class WGAN():
                     loss_fake_all += loss_fake
                     loss_D_all += (loss_fake - loss_real)
                     d_print = '\r[steps:%d/%d (diters:%d/%d)] loss_real: %.6f, loss_fake: %.6f, loss_D: %.6f' % (
-                        j, batches, q, diters, loss_real_all, loss_fake_all, loss_D_all)
+                        j, batches, q, diters, loss_real_all/j, loss_fake_all/j, loss_D_all/j)
                     print(d_print+g_print, end='      ', flush=True)
 
                 # plot fake image
@@ -119,9 +119,8 @@ class WGAN():
                 # train generator
                 gen_iterations += 1
                 fake_vectors = np.random.normal(size=[batch_size, self.random_vector_size])
-                loss_G = self.G_train([fake_vectors])
-                loss_G_all += loss_G
-                g_print = '   [gen_iterations:%d] loss_G: %.6f' % (gen_iterations, loss_G_all)
+                [loss_G] = self.G_train([fake_vectors])
+                g_print = '   [gen_iterations:%d] loss_G: %.6f' % (gen_iterations, loss_G)
                 print(d_print + g_print, end='      ', flush=True)
             print('\n')
         return self
@@ -155,7 +154,7 @@ class WGAN():
             noise = np.random.normal(size=[samples, self.random_vector_size])
         filename = "fake_epoches" + str(step) + ".png"
         images = self.preprocess_output(self.generator.predict(noise))
-        plt.figure(figsize=(12, 12))
+        plt.figure(figsize=(8, 8))
         for i in range(images.shape[0]):
             plt.subplot(5, 5, i + 1)
             image = images[i, :, :, :]
@@ -179,22 +178,22 @@ class WGAN():
 
         # 32*32
         x = Conv2D(32, (3, 3), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(input)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x,training=1)
         x = LeakyReLU(alpha=0.2)(x)
 
         # 16*16
         x = Conv2D(64, (3, 3), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x,training=1)
         x = LeakyReLU(alpha=0.2)(x)
 
         # 8*8
         x = Conv2D(128, (3, 3), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x,training=1)
         x = LeakyReLU(alpha=0.2)(x)
 
         # 4*4
         x = Conv2D(256, (3, 3), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x,training=1)
         x = LeakyReLU(alpha=0.2)(x)
 
         # 4*4*1 conv filters with valid padding to get 1-d output, which is used to instead of the sigmoid
@@ -210,22 +209,22 @@ class WGAN():
 
         # 4*4
         x = Conv2DTranspose(256, (4, 4), strides=1, padding='valid', kernel_initializer=conv_init, use_bias=False)(x)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x,training=1)
         x = Activation('relu')(x)
 
         # 8*8
         x = Conv2DTranspose(128, (3, 3), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x,training=1)
         x = Activation('relu')(x)
 
         # 16*16
         x = Conv2DTranspose(64, (3, 3), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x,training=1)
         x = Activation('relu')(x)
 
         # 32*32
         x = Conv2DTranspose(32, (3, 3), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x,training=1)
         x = Activation('relu')(x)
 
         # 64*64
