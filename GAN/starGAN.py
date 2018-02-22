@@ -1,17 +1,17 @@
+import numpy as np
 from keras.layers import *
 from keras.models import *
 from keras.optimizers import *
 import keras.backend as K
-import os
-import numpy as np
 import matplotlib.pyplot as plt
 from skimage import io,transform
 from keras.initializers import RandomNormal
+import tensorflow as tf
 #plt.switch_backend('agg')
 conv_init = RandomNormal(0, 0.02)
 
 class StarGAN():
-    def __init__(self, image_size=(128, 128, 3), n_class=5, repeat_num=6, diters=5, D_lr=0.0002, G_lr=0.0002, lamda_gp=10, lamda_cls=1, lamda_rec=10):
+    def __init__(self, image_size=(128, 128, 3), n_class=5, repeat_num=6, diters=5, D_lr=0.0001, G_lr=0.0001, lamda_gp=10, lamda_cls=1, lamda_rec=10):
         self.image_size = image_size
         self.repeat_num = repeat_num
         self.diters = diters
@@ -36,8 +36,8 @@ class StarGAN():
         # loss for discriminator
         d_out_src_real, d_out_cls_real = self.discriminator(x_real)
         d_loss_real = -K.mean(d_out_src_real)
-        d_loss_cls = K.categorical_crossentropy(label_real, d_out_cls_real)
-        d_acc = len(np.where((np.argmax(d_out_cls_real)-np.argmax(label_real))==0)[0])/x_real.shape[0]
+        d_loss_cls = K.mean(K.categorical_crossentropy(label_real, d_out_cls_real))
+        # d_acc, _ = tf.metrics.accuracy(label_real, d_out_cls_real)
         d_out_src_fake, d_out_cls_fake = self.discriminator(x_fake)
         d_loss_fake = K.mean(d_out_src_fake)
 
@@ -50,14 +50,14 @@ class StarGAN():
 
         d_loss = d_loss_real + d_loss_fake + lamda_gp * gradient_penalty + lamda_cls * d_loss_cls
         d_training_updates = RMSprop(lr=D_lr).get_updates(d_loss, self.discriminator.trainable_weights)
-        D_train = K.function([x_real, label_real, label_real_matrix, label_fake, label_fake_matrix, e], [d_loss, d_acc], d_training_updates)
+        D_train = K.function([x_real, label_real, label_real_matrix, label_fake, label_fake_matrix, e], [d_loss], d_training_updates)
 
         # loss for generator
         x_rec = self.generator([x_fake, label_real_matrix])
         g_out_src_fake, g_out_cls_fake = self.discriminator(x_fake)
         g_loss_fake = -K.mean(g_out_src_fake)
         g_loss_rec = K.mean(K.abs(x_real - x_rec))
-        g_loss_cls = K.categorical_crossentropy(label_fake, g_out_cls_fake)
+        g_loss_cls = K.mean(K.categorical_crossentropy(label_fake, g_out_cls_fake))
 
         g_loss = g_loss_fake + lamda_rec * g_loss_rec + lamda_cls * g_loss_cls
 
@@ -66,7 +66,7 @@ class StarGAN():
 
         return D_train, G_train
 
-    def fit(self, X_path, y, batch_size=64, epochs=10000, draw=False, shuffle=True):
+    def fit(self, X_path, y, batch_size=16, epochs=50, draw=False, shuffle=True):
         # X_path:path array[string], y:one-hot array[array[int]]
         train_index = np.arange(len(X_path))
         self.batch_size = batch_size
@@ -78,8 +78,7 @@ class StarGAN():
             d_acc_all=0
             j = 0
             print('epochs:' + str(i + 1) + '/' + str(epochs))
-            d_print = '\r[steps:%d/%d (diters:%d/%d)] d_loss: %.6f, d_acc: %.4f' % (
-                j, batches, 0, 0, d_loss_all, d_acc_all)
+            d_print = '\r[steps:%d/%d (diters:%d/%d)] d_loss: %.6f, d_acc: %.4f' % (j, batches, 0, 0, d_loss_all, d_acc_all)
             g_print = '   [gen_iterations:%d] g_loss: %.6f' % (gen_iterations, 0)
             if shuffle:
                 np.random.shuffle(train_index)
@@ -93,16 +92,15 @@ class StarGAN():
                     label_real_matrix=self.label2matrix(label_real)
                     label_fake_matrix=self.label2matrix(label_fake)
                     e = np.random.uniform(size=(batch_size, 1, 1, 1))
-                    [d_loss, d_acc] = self.D_train([x_real, label_real, label_real_matrix, label_fake, label_fake_matrix, e])
+                    [d_loss] = self.D_train([x_real, label_real, label_real_matrix, label_fake, label_fake_matrix, e])
                     d_loss_all+=d_loss
-                    d_acc_all+=d_acc
-                    d_print = '\r[steps:%d/%d (diters:%d/%d)] d_loss: %.6f, d_acc: %.4f' % (
-                        j, batches, q, self.diters, d_loss_all, d_acc_all)
+                    # d_acc_all+=d_acc
+                    d_print = '\r[steps:%d/%d (diters:%d/%d)] d_loss: %.6f, d_acc: %.4f' % (j, batches, q, self.diters, d_loss_all/j, d_acc_all/j)
                     print(d_print+g_print, end='      ', flush=True)
 
                 # plot fake image
                 if draw and gen_iterations % 200 == 0:
-                    self.plot_images(path='fake',step=gen_iterations)
+                    self.plot_images(X_path=X_path, y=y, path='fake',step=gen_iterations)
 
                 # train generator
                 gen_iterations += 1
@@ -113,26 +111,25 @@ class StarGAN():
         return self
 
     def train_generator(self,X_path, y, temp_index):
+        X_path=np.array(X_path)
         train_list_batch=X_path[temp_index]
         label_real=y[temp_index,:]
         images_train=[]
         for s in train_list_batch:
             img = io.imread(s)
-            img = transform.resize(img, (self.image_size[0], self.image_size[1]), mode='reflect')
-            # img *= 255.
             img = self.preprocess_input(img)
             images_train.append(img)
-        images_train=np.reshape(images_train, (self.batch_size, self.image_size[0], self.image_size[1], self.image_size[2]))
+        images_train=np.reshape(images_train, (len(temp_index), self.image_size[0], self.image_size[1], self.image_size[2]))
 
         # get label_fake
-        random_index=np.random.choice(np.arange(y.shape[0]),self.batch_size)
+        random_index=np.random.choice(np.arange(y.shape[0]),len(temp_index))
         label_fake=y[random_index,:]
 
         return images_train,label_real,label_fake
 
     def label2matrix(self,y):
         # label转矩阵 batch*n_class->batch*n_class*w*h，如[0,1,0]转为3个h*w矩阵——全零矩阵[0],全一矩阵[1],全零矩阵[0]
-        y_matrix=np.zeros((self.batch_size,self.image_size[0],self.image_size[1],self.n_class))
+        y_matrix=np.zeros((y.shape[0],self.image_size[0],self.image_size[1],y.shape[1]))
         for i in range(y.shape[0]):
             for j in range(y.shape[1]):
                 if y[i,j]==1:
@@ -148,24 +145,47 @@ class StarGAN():
     def preprocess_output(self, x):
         x = x + 1.
         x = x / 2.
-        x = x * 255.
+        # x = x * 255.
         return x
 
-    def plot_images(self, samples=25, noise=None, step=0, image_size=(64, 64, 1), path=None,show=False):
-        if noise is None:
-            noise = np.random.normal(size=[samples, self.random_vector_size])
-        filename = "fake_epoches" + str(step) + ".png"
-        images = self.preprocess_output(self.generator.predict(noise))
-        plt.figure(figsize=(8, 8))
-        for i in range(images.shape[0]):
-            plt.subplot(5, 5, i + 1)
-            image = images[i, :, :, :]
-            if image_size[2]==1:
-                image = np.reshape(image, [image_size[0], image_size[1]])
-                plt.imshow(image, cmap='gray')
-            else:
-                image = np.reshape(image, [image_size[0],image_size[1],image_size[2]])
-                plt.imshow(image)
+    def plot_images(self, X_path, y, samples=5, step=0, path=None,show=False):
+        filename = "gen_steps" + str(step) + ".png"
+        temp_index = np.random.choice(np.arange(y.shape[0]), samples, replace=False)
+        x_real, label_real, _ = self.train_generator(X_path, y, temp_index)
+        label_blond_hair = label_real
+        label_blond_hair[:,0]=0
+        label_blond_hair[:,1]=1
+        label_blond_hair[:,2]=0
+        label_male=label_real
+        label_male[:,3]=1
+        label_old=label_real
+        label_old[:,4]=0
+        # generate blond hair
+        x_blond_hair=self.generator.predict([x_real,self.label2matrix(label_blond_hair)])
+        x_male=self.generator.predict([x_real,self.label2matrix(label_male)])
+        x_old=self.generator.predict([x_real,self.label2matrix(label_old)])
+
+        plt.figure(figsize=(10, 10))
+        for i in range(x_real.shape[0]):
+            #plot origin
+            plt.subplot(samples, 4, i * 4 + 1)
+            plt.imshow(self.preprocess_output(x_real[i, :, :, :]))
+            plt.title('origin')
+            plt.axis('off')
+
+            plt.subplot(samples, 4, i * 4 + 2)
+            plt.imshow(self.preprocess_output(x_blond_hair[i, :, :, :]))
+            plt.title('blond hair')
+            plt.axis('off')
+
+            plt.subplot(samples, 4, i * 4 + 3)
+            plt.imshow(self.preprocess_output(x_male[i, :, :, :]))
+            plt.title('male')
+            plt.axis('off')
+
+            plt.subplot(samples, 4, i * 4 + 4)
+            plt.imshow(self.preprocess_output(x_old[i, :, :, :]))
+            plt.title('old')
             plt.axis('off')
         plt.tight_layout()
         if path != None:
@@ -180,10 +200,10 @@ class StarGAN():
         shortcut = Conv2D(filters, (1, 1), padding='same')(x)
 
         # Residual block
-        x = Conv2D(filters, (3, 3), padding='same', use_bias=False)(x)
+        x = Conv2D(filters, (3, 3), padding='same', kernel_initializer=conv_init, use_bias=False)(x)
         x = BatchNormalization()(x, training=1)
         x = Activation('relu')(x)
-        x = Conv2D(filters, (3, 3), padding='same', use_bias=False)(x)
+        x = Conv2D(filters, (3, 3), padding='same', kernel_initializer=conv_init, use_bias=False)(x)
         x = BatchNormalization()(x, training=1)
         x = add([x, shortcut])
 
@@ -217,16 +237,16 @@ class StarGAN():
         label_fake = Input(shape=(self.image_size[0], self.image_size[1], self.n_class))
         x = Concatenate(axis=-1)([x_real,label_fake])
 
-        x = Conv2D(64, (5, 5), strides=1, padding='same', use_bias=False)(x)
+        x = Conv2D(64, (5, 5), strides=1, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
         x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
         x = Activation('relu')(x)
 
         # down-sampling
-        x = Conv2D(128, (4, 4), strides=2, padding='same', use_bias=False)(x)
+        x = Conv2D(128, (4, 4), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
         x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
         x = Activation('relu')(x)
 
-        x = Conv2D(256, (4, 4), strides=2, padding='same', use_bias=False)(x)
+        x = Conv2D(256, (4, 4), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
         x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
         x = Activation('relu')(x)
 
@@ -235,15 +255,15 @@ class StarGAN():
             x = self.ResidualBlock(x, 512)
 
         # up-sampling
-        x = Conv2DTranspose(256, (4, 4), strides=2, padding='same', use_bias=False)(x)
+        x = Conv2DTranspose(256, (4, 4), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
         x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
         x = Activation('relu')(x)
 
-        x = Conv2DTranspose(128, (4, 4), strides=2, padding='same', use_bias=False)(x)
+        x = Conv2DTranspose(128, (4, 4), strides=2, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
         x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
         x = Activation('relu')(x)
 
-        x = Conv2D(origin_channel, (5, 5), strides=1, padding='same', use_bias=False)(x)
+        x = Conv2D(origin_channel, (5, 5), strides=1, padding='same', kernel_initializer=conv_init, use_bias=False)(x)
         output = Activation('tanh')(x)
 
         return Model(inputs=[x_real,label_fake], outputs=output, name='Generator')
