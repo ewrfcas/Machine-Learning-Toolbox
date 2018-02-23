@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from keras.layers import *
 from keras.models import *
 from keras.optimizers import *
@@ -10,7 +11,7 @@ from keras.initializers import RandomNormal
 # conv_init = RandomNormal(0, 0.02)
 
 class StarGAN():
-    def __init__(self, image_size=(128, 128, 3), n_class=5, repeat_num=6, diters=5, D_lr=0.0001, G_lr=0.0001, lamda_gp=10, lamda_cls=1, lamda_rec=10):
+    def __init__(self, image_size=(128, 128, 3), n_class=5, repeat_num=6, diters=5, D_lr=0.0002, G_lr=0.0002, lamda_gp=10, lamda_cls=1, lamda_rec=10):
         self.image_size = image_size
         self.repeat_num = repeat_num
         self.diters = diters
@@ -25,6 +26,16 @@ class StarGAN():
         self.discriminator = self.Discriminator()
         # generator
         self.generator = self.Generator()
+
+    def save_weights(self, path):
+        if not os.path.exists(path):
+            os.mkdir(path)
+        self.discriminator.save_weights(path + '/discriminator_weights.h5')
+        self.generator.save_weights(path + '/generator_weights.h5')
+
+    def load_weights(self, path):
+        self.discriminator.load_weights(path + '/discriminator_weights.h5')
+        self.generator.load_weights(path + '/generator_weights.h5')
 
     def starGAN_train(self, D_lr, G_lr, lamda_gp, lamda_cls, lamda_rec):
 
@@ -53,7 +64,7 @@ class StarGAN():
         gradient_penalty = K.mean(K.square(x_mixed_gradient_norm - 1))
 
         d_loss = d_loss_real + d_loss_fake + lamda_gp * gradient_penalty + lamda_cls * d_loss_cls
-        d_training_updates = Adam(lr=D_lr,beta_1=0.5,beta_2=0.999).get_updates(d_loss, self.discriminator.trainable_weights)
+        d_training_updates = RMSprop(lr=D_lr).get_updates(d_loss, self.discriminator.trainable_weights)
         D_train = K.function([x_real, label_real, label_real_matrix, label_fake, label_fake_matrix, e], [d_loss, d_acc], d_training_updates)
 
         # loss for generator
@@ -64,7 +75,7 @@ class StarGAN():
         g_loss_cls = K.mean(K.categorical_crossentropy(label_fake, g_out_cls_fake))
 
         g_loss = g_loss_fake + lamda_rec * g_loss_rec + lamda_cls * g_loss_cls
-        g_training_updates = Adam(lr=G_lr,beta_1=0.5,beta_2=0.999).get_updates(g_loss, self.generator.trainable_weights)
+        g_training_updates = RMSprop(lr=G_lr).get_updates(g_loss, self.generator.trainable_weights)
         G_train = K.function([x_real, label_real, label_real_matrix, label_fake, label_fake_matrix], [g_loss], g_training_updates)
 
         return D_train, G_train
@@ -82,12 +93,14 @@ class StarGAN():
             if epochs-i<10:
                 D_train, G_train = self.starGAN_train(self.D_lr*((epochs-i)/10), self.G_lr*((epochs-i)/10), self.lamda_gp, self.lamda_cls,
                                                       self.lamda_rec)
-            d_loss_all=0
-            d_acc_all=0
+            d_loss_all = 0
+            d_acc_all = 0
+            g_loss_all = 0
             j = 0
+            g = 0
             print('epochs:' + str(i + 1) + '/' + str(epochs))
             d_print = '\r[steps:%d/%d (diters:%d/%d)] d_loss: %.6f, d_acc: %.4f' % (j, batches, 0, 0, d_loss_all, d_acc_all)
-            g_print = '   [gen_iterations:%d] g_loss: %.6f' % (gen_iterations, 0)
+            g_print = '   [gen_iterations:%d] g_loss: %.6f' % (gen_iterations, g_loss_all)
             if shuffle:
                 np.random.shuffle(train_index)
             while j < batches:
@@ -112,8 +125,10 @@ class StarGAN():
 
                 # train generator
                 gen_iterations += 1
+                g += 1
                 [g_loss] = G_train([x_real, label_real, label_real_matrix, label_fake, label_fake_matrix])
-                g_print = '   [gen_iterations:%d] g_loss: %.6f' % (gen_iterations, g_loss)
+                g_loss_all += g_loss
+                g_print = '   [gen_iterations:%d] g_loss: %.6f' % (gen_iterations, g_loss_all/g)
                 print(d_print + g_print, end='      ', flush=True)
             print('\n')
         return self
