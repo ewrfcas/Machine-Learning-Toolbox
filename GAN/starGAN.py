@@ -133,7 +133,7 @@ class StarGAN():
             print('\n')
         return self
 
-    def train_generator(self, X_path, y, temp_index, enhance=False):
+    def train_generator(self, X_path, y, temp_index):
         X_path=np.array(X_path)
         train_list_batch=X_path[temp_index]
         label_real=y[temp_index,:]
