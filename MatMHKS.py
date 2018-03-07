@@ -9,15 +9,15 @@ class MatMHKS(BaseEstimator):
                  multi_class='ovr',verbose=0):
         self.penalty = penalty
         self.C = C
-        self.matrix_type=matrix_type
-        self.random_seed=random_seed
-        self.feature_shuffle=feature_shuffle
+        self.matrix_type = matrix_type
+        self.random_seed = random_seed
+        self.feature_shuffle = feature_shuffle
         self.class_weight = class_weight
         self.max_iter = max_iter
-        self.v0=v0
-        self.b0=b0
-        self.eta=eta
-        self.min_step=min_step
+        self.v0 = v0
+        self.b0 = b0
+        self.eta = eta
+        self.min_step = min_step
         self.multi_class = multi_class
         self.verbose = verbose
 
