@@ -51,8 +51,12 @@ class StarGAN():
         d_loss_real = -K.mean(d_out_src_real)
         d_loss_cls = K.mean(K.categorical_crossentropy(label_real, d_out_cls_real))
         # cal acc
-        label_pred = K.cast(K.greater(K.clip(d_out_cls_real, 0, 1), 0.5), K.floatx())
-        d_acc = 1 - K.mean(K.clip(K.sum(K.abs(label_real - label_pred), axis=1), 0, 1))
+        label_sub = d_out_cls_real - label_real
+        c1 = 1 + K.min(label_sub, axis=1)  # label为1的最小置信度
+        c2 = K.max(label_sub, axis=1)  # label为0的最大置信度
+        d_acc = K.mean(K.cast(K.greater(c1 - c2, 0), K.floatx()))  # 如果label为1的最小置信度大于label为0的最大置信度，则正确，否则错误
+        # label_pred = K.cast(K.greater(K.clip(d_out_cls_real, 0, 1), 0.5), K.floatx())
+        # d_acc = 1 - K.mean(K.clip(K.sum(K.abs(label_real - label_pred), axis=1), 0, 1))
         d_out_src_fake, d_out_cls_fake = self.discriminator(x_fake)
         d_loss_fake = K.mean(d_out_src_fake)
 
@@ -260,7 +264,7 @@ class StarGAN():
         label_fake = Input(shape=(self.image_size[0], self.image_size[1], self.n_class))
         x = Concatenate(axis=-1)([x_real,label_fake])
 
-        x = Conv2D(64, (5, 5), strides=1, padding='same', use_bias=False)(x)
+        x = Conv2D(64, (7, 7), strides=1, padding='same', use_bias=False)(x)
         x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
         x = Activation('relu')(x)
 
@@ -275,18 +279,18 @@ class StarGAN():
 
         # Bottleneck
         for i in range(self.repeat_num):
-            x = self.ResidualBlock(x, 512)
+            x = self.ResidualBlock(x, 256)
 
         # up-sampling
-        x = Conv2DTranspose(256, (4, 4), strides=2, padding='same', use_bias=False)(x)
-        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
-        x = Activation('relu')(x)
-
         x = Conv2DTranspose(128, (4, 4), strides=2, padding='same', use_bias=False)(x)
         x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
         x = Activation('relu')(x)
 
-        x = Conv2D(origin_channel, (5, 5), strides=1, padding='same', use_bias=False)(x)
+        x = Conv2DTranspose(64, (4, 4), strides=2, padding='same', use_bias=False)(x)
+        x = BatchNormalization(momentum=0.9, epsilon=1e-5)(x, training=1)
+        x = Activation('relu')(x)
+
+        x = Conv2D(origin_channel, (7, 7), strides=1, padding='same', use_bias=False)(x)
         output = Activation('tanh')(x)
 
         return Model(inputs=[x_real,label_fake], outputs=output, name='Generator')
