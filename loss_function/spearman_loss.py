@@ -1,14 +1,11 @@
 import tensorflow as tf
+from keras.models import *
 from keras.layers import *
+from keras.optimizers import *
 import keras.backend as K
 
-sess = tf.InteractiveSession()
-
-inputs = tf.placeholder(tf.float32, [None, 64, 512])
-labels = tf.placeholder(tf.float32, [None, 1])
-
 # rank pearson loss
-def spearman_loss(y_true_rank, y_pred_rank, eps=1e-10):
+def pearson_loss(y_true_rank, y_pred_rank, eps=1e-10):
     y_true_mean = K.mean(y_true_rank)
     y_pred_mean = K.mean(y_pred_rank)
     u1 = (y_true_rank - y_true_mean)
@@ -18,34 +15,38 @@ def spearman_loss(y_true_rank, y_pred_rank, eps=1e-10):
     rou=tf.div(u,d+eps)
     return 1.-rou
 
-def model(inputs, unit=256):
+# feature to rank
+class SpearRank(Layer):
+    def __init__(self, eps=1e-10, **kwargs):
+        self.eps = eps
+        super(SpearRank, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        super(SpearRank, self).build(input_shape)
+
+    def call(self, x, mask=None):
+        x_transpose = tf.reshape(tf.transpose(x), (1, -1))
+        x1 = x - x_transpose
+        x2 = tf.abs(x - x_transpose) + self.eps
+        x = tf.div(x1, x2)
+        x = tf.reshape(tf.reduce_sum(x, axis=1), (-1, 1))
+        x = x + tf.reduce_min(x) * (-1)
+        print(x)
+
+        return x
+
+def model(timesteps=64, dim=512, unit=256,ac='sigmoid', eps=1e-10):
+    inputs = Input((timesteps, dim))
     x = Masking(mask_value=0)(inputs)
-    x = LSTM(unit, return_sequences=False)(x,training=1)
-    x = Dense(1, activation='sigmoid')(x)
-    x_temp = tf.reshape(tf.transpose(x),(-1,))
-    x_temps=[]
-    for i in range(16):
-        x_temps.append(x_temp)
-    x_temps=tf.stack(x_temps)
-    eps=1e-10
-    x1=x-x_temps+eps
-    x2=tf.abs(x-x_temps)+eps
-    x=tf.div(x1,x2)
-    x=tf.reshape(tf.reduce_sum(x,axis=1),(-1,1))
+    x = LSTM(unit, return_sequences=False)(x)
+    x = Dense(1, activation=ac)(x)
+    x = SpearRank()(x)
 
-    return x
+    return Model(inputs=inputs, outputs=x)
 
-preds=model(inputs)
-loss=spearman_loss(labels,preds)
-train_step = tf.train.AdamOptimizer(0.005).minimize(loss)
-sess.run(tf.global_variables_initializer())
-
-
+model=model()
+model.compile(optimizer='adam',loss=pearson_loss)
 X=np.random.random((320,64,512))
 y=np.random.random(320)
-for i in range(20):
-    print(i,':')
-    feed_dict = {inputs: X[i*16:(i+1)*16,:,:], labels: np.reshape(np.argsort(y[i*16:(i+1)*16]).astype(np.float32),(-1,1))}
-    loss_value,_,preds_value = sess.run([loss, train_step,preds], feed_dict=feed_dict)
-    print(preds_value)
-    print(loss_value)
+model.fit(X,y)
+
