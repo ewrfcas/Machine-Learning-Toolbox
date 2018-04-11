@@ -31,7 +31,6 @@ class SpearRank(Layer):
         x = tf.div(x1, x2)
         x = tf.reshape(tf.reduce_sum(x, axis=1), (-1, 1))
         x = x + tf.reduce_min(x) * (-1)
-        print(x)
 
         return x
 
