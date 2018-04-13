@@ -4,6 +4,9 @@ from keras.layers import *
 from keras.optimizers import *
 import keras.backend as K
 
+def mse_loss(y_true, y_pred):
+    return tf.losses.mean_squared_error(y_true, y_pred)
+
 # rank pearson loss
 def pearson_loss(y_true_rank, y_pred_rank, eps=1e-10):
     y_true_mean = K.mean(y_true_rank)
@@ -34,18 +37,19 @@ class SpearRank(Layer):
 
         return x
 
-def model(timesteps=64, dim=512, unit=256,ac='sigmoid', eps=1e-10):
+def model(timesteps=64, dim=512, unit=256,ac='sigmoid'):
     inputs = Input((timesteps, dim))
     x = Masking(mask_value=0)(inputs)
     x = LSTM(unit, return_sequences=False)(x)
     x = Dense(1, activation=ac)(x)
-    x = SpearRank()(x)
+    x1 = SpearRank()(x)
 
-    return Model(inputs=inputs, outputs=x)
+    return Model(inputs=inputs, outputs=[x,x1])
 
 model=model()
-model.compile(optimizer='adam',loss=pearson_loss)
+model.compile(optimizer='adam',loss=[mse_loss,pearson_loss],loss_weights=[0.9,0.1])
 X=np.random.random((320,64,512))
 y=np.random.random(320)
-model.fit(X,y)
+y1=np.argsort(y)
+model.fit(X,[y,y1])
 
