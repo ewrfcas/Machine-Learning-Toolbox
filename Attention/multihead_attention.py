@@ -39,7 +39,7 @@ class Attention(Layer):
             if mode == 'add':
                 return inputs - (1 - mask) * 1e12
 
-    def call(self, x):
+    def call(self, x, mask=None):
         # 如果只传入Q_seq,K_seq,V_seq，那么就不做Mask
         # 如果同时传入Q_seq,K_seq,V_seq,Q_len,V_len，那么对多余部分做Mask
         if len(x) == 3:
@@ -47,6 +47,8 @@ class Attention(Layer):
             Q_len, V_len = None, None
         elif len(x) == 5:
             Q_seq, K_seq, V_seq, Q_len, V_len = x
+            Q_len = K.cast(Q_len, 'int32')
+            V_len = K.cast(V_len, 'int32')
         else:
             print('wrong input!')
             return x
@@ -75,17 +77,3 @@ class Attention(Layer):
 
     def compute_output_shape(self, input_shape):
         return (input_shape[0][0], input_shape[0][1], self.output_dim)
-
-
-# from keras.models import Model
-# from keras.layers import *
-#
-# S_inputs = Input(shape=(None,), dtype='int32')
-# embeddings = Embedding(max_features, 128)(S_inputs)
-# #embeddings = Position_Embedding()(embeddings) #增加Position_Embedding能轻微提高准确率
-# O_seq = Attention(8,16)([embeddings,embeddings,embeddings])
-# O_seq = GlobalAveragePooling1D()(O_seq)
-# O_seq = Dropout(0.5)(O_seq)
-# outputs = Dense(1, activation='sigmoid')(O_seq)
-#
-# model = Model(inputs=S_inputs, outputs=outputs)
