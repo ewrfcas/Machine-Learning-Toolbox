@@ -24,11 +24,12 @@ class ArcFaceLoss(Layer):
         mm = sin_m * self.m
         threshold = math.cos(math.pi - self.m)
         # inputs:
-        # x: features, mask: onehot label works as mask
+        # x: features, y_mask: 1-D or one-hot label works as mask
         x = inputs[0]
-        mask = inputs[1]
-        if mask.shape[-1]==1:
-            mask=K.one_hot(mask, self.class_num)
+        y_mask = inputs[1]
+        if y_mask.shape[-1]==1:
+            y_mask = K.cast(y_mask, tf.int32)
+            y_mask = K.reshape(K.one_hot(y_mask, self.class_num),(-1, self.class_num))
 
         # feature norm
         x = K.l2_normalize(x, axis=1)
@@ -51,9 +52,10 @@ class ArcFaceLoss(Layer):
         cos_tm_temp = tf.where(cond, cos_tm, keep_val)
 
         # mask by label
-        inv_mask = 1. - mask
+        y_mask =+ K.epsilon()
+        inv_mask = 1. - y_mask
         s_cos_theta = self.s * cos_theta
-        output = (s_cos_theta * inv_mask) + (cos_tm_temp * mask)
+        output = K.softmax((s_cos_theta * inv_mask) + (cos_tm_temp * y_mask))
 
         return output
 
