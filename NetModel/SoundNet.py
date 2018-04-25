@@ -29,7 +29,7 @@ def model(timesteps=600000, output_type='pred'):
     x = MaxPooling1D(pool_size=4)(x)
 
     if output_type=='feat':
-        output = x
+        output = GlobalAveragePooling1D()(x)
     else:
         x = Conv1D(filters=512, kernel_size=4, strides=2, name='conv6')(x)
         x = BatchNormalization(name='bn6')(x)
@@ -48,5 +48,5 @@ def model(timesteps=600000, output_type='pred'):
 
     return Model(inputs=inputs, outputs=output)
 
-model=model()
+model=model(output_type='feat')
 model.summary()

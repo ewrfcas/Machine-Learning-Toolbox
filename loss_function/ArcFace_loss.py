@@ -3,6 +3,7 @@ import keras.backend as K
 from keras.engine.topology import Layer
 import math
 import tensorflow as tf
+from keras_vggface import utils
 
 class ArcFaceLoss(Layer):
     def __init__(self, class_num, s=64, m=0.5, **kwargs):
@@ -40,7 +41,7 @@ class ArcFaceLoss(Layer):
         cos_theta = K.dot(x, self.W)
         cos_theta2 = K.square(cos_theta)
         sin_theta2 = 1. - cos_theta2
-        sin_theta = K.sqrt(sin_theta2)
+        sin_theta = K.sqrt(sin_theta2 + K.epsilon())
         cos_tm = self.s * ((cos_theta * cos_m) - (sin_theta * sin_m))
 
         # this condition controls the theta+m should in range [0, pi]
