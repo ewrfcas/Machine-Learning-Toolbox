@@ -7,7 +7,9 @@ from keras_vggface.vggface import VGGFace
 def model(vgg_model, input_shape=(224,224,3), CNN_output_dim=512, timesteps=8, unit=256, ac='sigmoid'):
     inputs = Input((timesteps, input_shape[0], input_shape[1], input_shape[2]))
     masking_len = Input((timesteps,CNN_output_dim))
+    print(inputs)
     x = Lambda(lambda x:tf.unstack(x,axis=1),name='unstack')(inputs)
+    print(x)
     xs=[]
     for xi in x:
         xs.append(vgg_model(xi))
@@ -29,4 +31,4 @@ def model(vgg_model, input_shape=(224,224,3), CNN_output_dim=512, timesteps=8, u
 
 VGGFace_model = VGGFace(model='vgg16', weights=None, include_top=False, input_shape=(224,224,3), pooling='avg')
 model=model(VGGFace_model)
-model.summary()
+# model.summary()

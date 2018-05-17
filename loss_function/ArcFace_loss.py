@@ -3,7 +3,6 @@ import keras.backend as K
 from keras.engine.topology import Layer
 import math
 import tensorflow as tf
-from keras_vggface import utils
 
 class ArcFaceLoss(Layer):
     def __init__(self, class_num, s=64, m=0.5, **kwargs):

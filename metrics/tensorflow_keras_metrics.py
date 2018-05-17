@@ -1,7 +1,7 @@
 from keras import backend as K
 
 #TPR
-def true_positive_rate(y_true, y_pred,mode='p'):
+def true_positive_rate(y_true, y_pred, mode='p'):
     threshold_value = 0.5
     if mode=='n':
         threshold_value=1-threshold_value
