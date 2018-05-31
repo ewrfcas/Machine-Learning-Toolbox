@@ -68,26 +68,46 @@ def feed_forward_block(FeedForward_layers, x, dropout=0.0, l=1., L=1.):
     x = layer_dropout(x, residual, dropout * (l / L))
     return x
 
-def QANet(word_dim=300, char_dim=64, cont_limit=400, ques_limit=50, char_limit=16, word_mat=None, char_input_size=1000,
-          filters=128, num_head=8, hand_feat_dim=0, dropout=0.1):
+def output_block(x1, x2, ans_limit=50):
+    outer = tf.matmul(tf.expand_dims(x1, axis=2), tf.expand_dims(x2, axis=1))
+    outer = tf.matrix_band_part(outer, 0, ans_limit)
+    output1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
+    output2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
+    return [output1, output2]
+
+
+def QANet(word_dim=300, char_dim=64, cont_limit=400, ques_limit=50, char_limit=16, word_mat=None, char_mat=None,
+          char_input_size=1000, filters=128, num_head=8, dropout=0.1, train=True, ans_limit=30):
     # Input Embedding Layer
     contw_input = Input((cont_limit,))
     quesw_input = Input((ques_limit,))
     contc_input = Input((cont_limit, char_limit))
     quesc_input = Input((ques_limit, char_limit))
-    cont_len = Input((None,))
-    ques_len = Input((None,))
-    if hand_feat_dim != 0:
-        handcraft_input = Input((cont_limit, hand_feat_dim))
+
+    # get mask
+    c_mask = Lambda(lambda x: tf.cast(x, tf.bool))(contw_input)
+    q_mask = Lambda(lambda x: tf.cast(x, tf.bool))(quesw_input)
+    cont_len = Lambda(lambda x: tf.expand_dims(tf.reduce_sum(tf.cast(x, tf.int32), axis=1), axis=1))(c_mask)
+    ques_len = Lambda(lambda x: tf.expand_dims(tf.reduce_sum(tf.cast(x, tf.int32), axis=1), axis=1))(q_mask)
+
+    # # slice
+    # c_maxlen = tf.reduce_max(cont_len)
+    # q_maxlen = tf.reduce_max(ques_len)
+    # contw_input_ = Lambda(lambda x:tf.slice(x, [0, 0], [-1, c_maxlen]))(contw_input)
+    # quesw_input_ = Lambda(lambda x:tf.slice(x, [0, 0], [-1, q_maxlen]))(quesw_input)
+    # c_mask_ = Lambda(lambda x:tf.slice(x, [0, 0], [-1, c_maxlen]))(c_mask)
+    # q_mask_ = Lambda(lambda x:tf.slice(x, [0, 0], [-1, q_maxlen]))(q_mask)
+    # contc_input_ = Lambda(lambda x:tf.slice(x, [0, 0, 0], [-1,c_maxlen, char_limit]))(contc_input)
+    # quesc_input_ = Lambda(lambda x:tf.slice(x, [0, 0, 0], [-1,q_maxlen, char_limit]))(quesc_input)
+    # print(contw_input_,quesw_input_)
 
     # embedding word
-    xw_cont = Embedding(word_mat.shape[0], word_dim, weights=[word_mat], input_length=cont_limit, mask_zero=False,
-                        trainable=False)(contw_input)
-    xw_ques = Embedding(word_mat.shape[0], word_dim, weights=[word_mat], input_length=ques_limit, mask_zero=False,
-                        trainable=False)(quesw_input)
+    WordEmbedding = Embedding(word_mat.shape[0], word_dim, weights=[word_mat], mask_zero=False, trainable=False)
+    xw_cont = WordEmbedding(contw_input)
+    xw_ques = WordEmbedding(quesw_input)
 
     # embedding char
-    CharEmbedding = Embedding(char_input_size, char_dim, input_length=char_limit, mask_zero=False,
+    CharEmbedding = Embedding(char_input_size, char_dim, weights=[char_mat], input_length=char_limit, mask_zero=False,
                               name='char_embedding')
     xc_cont = CharEmbedding(contc_input)
     xc_ques = CharEmbedding(quesc_input)
@@ -144,9 +164,6 @@ def QANet(word_dim=300, char_dim=64, cont_limit=400, ques_limit=50, char_limit=1
 
     # Context_to_Query_Attention_Layer
     x = context2query_attention(512, cont_limit, ques_limit, dropout)([x_cont, x_ques, cont_len, ques_len])
-    # handcraft
-    if hand_feat_dim != 0:
-        x = Concatenate()([x, handcraft_input])
     x = Conv1D(filters, 1, kernel_regularizer=regularizer, activation='linear')(x)
 
     # Model_Encoder_Layer
@@ -163,8 +180,8 @@ def QANet(word_dim=300, char_dim=64, cont_limit=400, ques_limit=50, char_limit=1
                                                Conv2D(filters, 1, padding='same', kernel_regularizer=regularizer)])
         DepthwiseConv_share_2.append(DepthwiseConv_share_2_temp)
         SelfAttention_share_2.append([Conv1D(2 * filters, 1, kernel_regularizer=regularizer),
-                             Conv1D(filters, 1, kernel_regularizer=regularizer),
-                             MultiHeadAttention(filters, num_head, dropout=0.1, bias=True)])
+                                      Conv1D(filters, 1, kernel_regularizer=regularizer),
+                                      MultiHeadAttention(filters, num_head, dropout=0.1, bias=True)])
         FeedForward_share_2.append([Conv1D(filters, 1, kernel_regularizer=regularizer, activation='relu'),
                                     Conv1D(filters, 1, kernel_regularizer=regularizer, activation='linear')])
 
@@ -191,15 +208,17 @@ def QANet(word_dim=300, char_dim=64, cont_limit=400, ques_limit=50, char_limit=1
     x_end = Lambda(lambda x: mask_logits(x[0], x[1], axis=0, time_dim=1))([x_end, cont_len])
     x_end = Lambda(lambda x: K.softmax(x), name='end')(x_end)
 
-    if hand_feat_dim == 0:
-        return Model(inputs=[contw_input, quesw_input, contc_input, quesc_input, cont_len, ques_len],
+    if train:
+        return Model(inputs=[contw_input, quesw_input, contc_input, quesc_input],
                      outputs=[x_start, x_end])
     else:
-        return Model(inputs=[contw_input, quesw_input, contc_input, quesc_input, cont_len, ques_len, handcraft_input],
-                     outputs=[x_start, x_end])
+        x_final = Lambda(lambda x: output_block(x[0], x[1], ans_limit))([x_start, x_end])
+        return Model(inputs=[contw_input, quesw_input, contc_input, quesc_input],
+                     outputs=x_final)
 
 embedding_matrix = np.random.random((10000,300))
-model=QANet(word_mat=embedding_matrix,hand_feat_dim=0)
+embedding_matrix_char = np.random.random((1000,64))
+model=QANet(word_mat=embedding_matrix,char_mat=embedding_matrix_char)
 model.summary()
 
 # optimizer=Adam(lr=0.001,beta_1=0.8,beta_2=0.999,epsilon=1e-7)
