@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
-import QANet_model
+from NetModel.QANet_tensorflow import QANet_model
 import tensorflow as tf
-import util
+from NetModel.QANet_tensorflow import util
 import json
 import os
 import time
@@ -115,7 +115,8 @@ with tf.Session(config=sess_config) as sess:
             loss_value, _ = sess.run([model.loss, model.train_op],
                                      feed_dict={model.contw_input_: contw_input, model.quesw_input_: quesw_input,
                                                 model.contc_input_: contc_input, model.quesc_input_: quesc_input,
-                                                model.y_start_: y_start, model.y_end_: y_end})
+                                                model.y_start_: y_start, model.y_end_: y_end,
+                                                model.dropout: config['dropout']})
             sum_loss += loss_value
             last_train_str = "\r[epoch:%d/%d, steps:%d/%d] -ETA: %ds -loss: %.4f" % (
             epoch + 1, config['epoch'], i + 1, n_batch, cal_ETA(t_start, i, n_batch), sum_loss / (i + 1))

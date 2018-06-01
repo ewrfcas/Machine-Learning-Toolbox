@@ -1,12 +1,13 @@
 from keras.layers import *
 from keras.regularizers import *
 from keras.models import *
-from Attention.context2query_attention import context2query_attention
-from Attention.multihead_attention import Attention as MultiHeadAttention
-from Attention.position_embedding import Position_Embedding as PositionEmbedding
+from KerasLayer.context2query_attention import context2query_attention
+from KerasLayer.multihead_attention import Attention as MultiHeadAttention
+from KerasLayer.position_embedding import Position_Embedding as PositionEmbedding
 from keras import layers
 from keras.optimizers import *
 from keras.callbacks import *
+from KerasLayer.layer_dropout import LayerDropout
 from keras.initializers import *
 
 regularizer = l2(3e-7)
@@ -20,12 +21,6 @@ def mask_logits(inputs, mask, mask_value=-1e12, axis=1, time_dim=1):
     if axis != 0:
         mask = tf.expand_dims(mask, axis)
     return inputs + mask_value * (1 - mask)
-
-def layer_dropout(x, residual, dropout):
-    pred = tf.random_uniform([]) < dropout
-    x = Dropout(dropout)(x)
-    x = layers.add([x, residual])
-    return Lambda(lambda x: tf.cond(pred, lambda: x[1], lambda: x[0]))([x, residual])
 
 def highway(highway_layers, x, num_layers=2, dropout=0.0):
     # reduce dim
@@ -45,7 +40,7 @@ def conv_block(conv_layers, x, num_conv=4, dropout=0.0, l=1., L=1.):
         x = Dropout(dropout)(x)
         x = conv_layers[i][0](x)
         x = conv_layers[i][1](x)
-        x = layer_dropout(x, residual, dropout * (l / L))
+        x = LayerDropout(dropout * (l / L))([x, residual])
     x = Lambda(lambda v: tf.squeeze(v, axis=2))(x)
     return x
 
@@ -56,7 +51,7 @@ def attention_block(attention_layer, x, seq_len, dropout=0.0, l=1., L=1.):
     x1 = attention_layer[0](x)
     x2 = attention_layer[1](x)
     x = attention_layer[2]([x1,x2,seq_len])
-    x = layer_dropout(x, residual, dropout * (l / L))
+    x = LayerDropout(dropout * (l / L))([x, residual])
     return x
 
 def feed_forward_block(FeedForward_layers, x, dropout=0.0, l=1., L=1.):
@@ -65,7 +60,7 @@ def feed_forward_block(FeedForward_layers, x, dropout=0.0, l=1., L=1.):
     x = Dropout(dropout)(x)
     x = FeedForward_layers[0](x)
     x = FeedForward_layers[1](x)
-    x = layer_dropout(x, residual, dropout * (l / L))
+    x = LayerDropout(dropout * (l / L))([x, residual])
     return x
 
 def output_block(x1, x2, ans_limit=50):

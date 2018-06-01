@@ -289,7 +289,6 @@ def dot_product_attention(q,
             # shapes = [x  if x != None else -1 for x in logits.shape.as_list()]
             mask = tf.expand_dims(mask, axis=1)
             mask = tf.expand_dims(mask, axis=1)
-            # mask = tf.reshape(mask, [shapes[0],1,1,shapes[-1]])
             logits = mask_logits(logits, mask)
         weights = tf.nn.softmax(logits, name="attention_weights")
         # dropping out the attention links for each of the heads

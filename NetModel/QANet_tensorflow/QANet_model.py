@@ -1,5 +1,5 @@
 import tensorflow as tf
-from layers import regularizer, residual_block, highway, conv, mask_logits, optimized_trilinear_for_attention, total_params
+from NetModel.QANet_tensorflow.layers import regularizer, residual_block, highway, conv, mask_logits, optimized_trilinear_for_attention, total_params
 
 class Model(object):
     def __init__(self, config, word_mat=None, char_mat=None, test=False):
@@ -12,12 +12,12 @@ class Model(object):
         self.ans_limit = config['ans_limit']
         self.filters = config['filters']
         self.num_heads = config['num_heads']
-        self.dropout = config['dropout']
         self.batch_size = config['batch_size']
         self.l2_norm = config['l2_norm']
         self.decay = config['decay']
         self.learning_rate = config['learning_rate']
         self.grad_clip = config['grad_clip']
+        self.dropout = tf.placeholder_with_default(0.0, (), name="dropout")
 
         # embedding layer
         self.word_mat = tf.get_variable("word_mat", initializer=tf.constant(word_mat, dtype=tf.float32), trainable=False)
