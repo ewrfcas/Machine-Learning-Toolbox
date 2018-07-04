@@ -70,19 +70,23 @@ def get_dataset(record_file, parser, config):
         parser, num_parallel_calls=num_threads).repeat().batch(config.batch_size)
     return dataset
 
-
-def convert_tokens(eval_file, qa_id, pp1, pp2):
+def convert_tokens(eval_file, qa_id, pp1, pp2, unanswer_id=-1):
     answer_dict = {}
     remapped_dict = {}
+    noanswer_num = 0
     for qid, p1, p2 in zip(qa_id, pp1, pp2):
         context = eval_file[str(qid)]["context"]
         spans = eval_file[str(qid)]["spans"]
         uuid = eval_file[str(qid)]["uuid"]
-        start_idx = spans[p1][0]
-        end_idx = spans[p2][1]
-        answer_dict[str(qid)] = context[start_idx: end_idx]
-        remapped_dict[uuid] = context[start_idx: end_idx]
-    return answer_dict, remapped_dict
+        if p1==unanswer_id or p2==unanswer_id or p1>=len(spans) or p2>=len(spans): # prediction has no answer
+            noanswer_num+=1
+            answer_dict[str(qid)]='unanswerable'
+        else:
+            start_idx = spans[p1][0]
+            end_idx = spans[p2][1]
+            answer_dict[str(qid)] = context[start_idx: end_idx]
+            remapped_dict[uuid] = context[start_idx: end_idx]
+    return answer_dict, remapped_dict, noanswer_num
 
 
 def evaluate(eval_file, answer_dict):
@@ -91,10 +95,13 @@ def evaluate(eval_file, answer_dict):
         total += 1
         ground_truths = eval_file[key]["answers"]
         prediction = value
-        exact_match += metric_max_over_ground_truths(
-            exact_match_score, prediction, ground_truths)
-        f1 += metric_max_over_ground_truths(f1_score,
-                                            prediction, ground_truths)
+        if len(ground_truths)==0: # ground truth has no answer
+            if prediction=='unanswerable':
+                exact_match+=1
+                f1+=1
+        else:
+            exact_match += metric_max_over_ground_truths(exact_match_score, prediction, ground_truths)
+            f1 += metric_max_over_ground_truths(f1_score,prediction, ground_truths)
     exact_match = 100.0 * exact_match / total
     f1 = 100.0 * f1 / total
     return {'exact_match': exact_match, 'f1': f1}

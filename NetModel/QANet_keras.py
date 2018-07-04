@@ -4,7 +4,7 @@ from keras.models import *
 from KerasLayer.context2query_attention import context2query_attention
 from KerasLayer.multihead_attention import Attention as MultiHeadAttention
 from KerasLayer.position_embedding import Position_Embedding as PositionEmbedding
-from keras import layers
+from KerasLayer.QAoutputBlock import QAoutputBlock
 from keras.optimizers import *
 from keras.callbacks import *
 from KerasLayer.layer_dropout import LayerDropout
@@ -63,16 +63,8 @@ def feed_forward_block(FeedForward_layers, x, dropout=0.0, l=1., L=1.):
     x = LayerDropout(dropout * (l / L))([x, residual])
     return x
 
-def output_block(x1, x2, ans_limit=50):
-    outer = tf.matmul(tf.expand_dims(x1, axis=2), tf.expand_dims(x2, axis=1))
-    outer = tf.matrix_band_part(outer, 0, ans_limit)
-    output1 = tf.argmax(tf.reduce_max(outer, axis=2), axis=1)
-    output2 = tf.argmax(tf.reduce_max(outer, axis=1), axis=1)
-    return [output1, output2]
-
-
 def QANet(word_dim=300, char_dim=64, cont_limit=400, ques_limit=50, char_limit=16, word_mat=None, char_mat=None,
-          char_input_size=1000, filters=128, num_head=8, dropout=0.1, train=True, ans_limit=30):
+          char_input_size=1000, filters=128, num_head=8, dropout=0.1, ans_limit=30):
     # Input Embedding Layer
     contw_input = Input((cont_limit,))
     quesw_input = Input((ques_limit,))
@@ -84,17 +76,6 @@ def QANet(word_dim=300, char_dim=64, cont_limit=400, ques_limit=50, char_limit=1
     q_mask = Lambda(lambda x: tf.cast(x, tf.bool))(quesw_input)
     cont_len = Lambda(lambda x: tf.expand_dims(tf.reduce_sum(tf.cast(x, tf.int32), axis=1), axis=1))(c_mask)
     ques_len = Lambda(lambda x: tf.expand_dims(tf.reduce_sum(tf.cast(x, tf.int32), axis=1), axis=1))(q_mask)
-
-    # # slice
-    # c_maxlen = tf.reduce_max(cont_len)
-    # q_maxlen = tf.reduce_max(ques_len)
-    # contw_input_ = Lambda(lambda x:tf.slice(x, [0, 0], [-1, c_maxlen]))(contw_input)
-    # quesw_input_ = Lambda(lambda x:tf.slice(x, [0, 0], [-1, q_maxlen]))(quesw_input)
-    # c_mask_ = Lambda(lambda x:tf.slice(x, [0, 0], [-1, c_maxlen]))(c_mask)
-    # q_mask_ = Lambda(lambda x:tf.slice(x, [0, 0], [-1, q_maxlen]))(q_mask)
-    # contc_input_ = Lambda(lambda x:tf.slice(x, [0, 0, 0], [-1,c_maxlen, char_limit]))(contc_input)
-    # quesc_input_ = Lambda(lambda x:tf.slice(x, [0, 0, 0], [-1,q_maxlen, char_limit]))(quesc_input)
-    # print(contw_input_,quesw_input_)
 
     # embedding word
     WordEmbedding = Embedding(word_mat.shape[0], word_dim, weights=[word_mat], mask_zero=False, trainable=False)
@@ -203,21 +184,16 @@ def QANet(word_dim=300, char_dim=64, cont_limit=400, ques_limit=50, char_limit=1
     x_end = Lambda(lambda x: mask_logits(x[0], x[1], axis=0, time_dim=1))([x_end, cont_len])
     x_end = Lambda(lambda x: K.softmax(x), name='end')(x_end)
 
-    if train:
-        return Model(inputs=[contw_input, quesw_input, contc_input, quesc_input],
-                     outputs=[x_start, x_end])
-    else:
-        x_final = Lambda(lambda x: output_block(x[0], x[1], ans_limit))([x_start, x_end])
-        return Model(inputs=[contw_input, quesw_input, contc_input, quesc_input],
-                     outputs=x_final)
+    x_start_fin, x_end_fin = QAoutputBlock(ans_limit)([x_start,x_end])
+    return Model(inputs=[contw_input, quesw_input, contc_input, quesc_input], outputs=[x_start, x_end, x_start_fin, x_end_fin])
 
 embedding_matrix = np.random.random((10000,300))
 embedding_matrix_char = np.random.random((1000,64))
 model=QANet(word_mat=embedding_matrix,char_mat=embedding_matrix_char)
-model.summary()
+# model.summary()
 
-# optimizer=Adam(lr=0.001,beta_1=0.8,beta_2=0.999,epsilon=1e-7)
-# model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['acc'])
+optimizer=Adam(lr=0.001,beta_1=0.8,beta_2=0.999,epsilon=1e-7)
+model.compile(optimizer=optimizer, loss=['categorical_crossentropy','categorical_crossentropy','mae','mae'], loss_weights=[1, 1, 0, 0])
 #
 # # call backs
 # class LRSetting(Callback):
@@ -228,19 +204,19 @@ model.summary()
 # check_point = ModelCheckpoint('model/QANetv02.h5', monitor='val_loss', verbose=0, save_best_only=True,save_weights_only=True, mode='auto', period=1)
 # early_stop = EarlyStopping(monitor='val_loss', patience=10, verbose=1, mode='auto')
 #
-# # load data
-# char_dim=200
-# cont_limit=400
-# ques_limit=50
-# char_limit=16
-#
-# context_word = np.random.randint(0, 10000, (300, cont_limit))
-# question_word = np.random.randint(0, 10000, (300, ques_limit))
-# context_char = np.random.randint(0, 96, (300, cont_limit, char_limit))
-# question_char = np.random.randint(0, 96, (300, ques_limit, char_limit))
-# context_length = np.random.randint(5, cont_limit, (300, 1))
-# question_length = np.random.randint(5, ques_limit, (300, 1))
-# start_label = np.random.randint(0, 2, (300, cont_limit))
-# end_label = np.random.randint(0, 2, (300, cont_limit))
-#
-# model.fit([context_word,question_word,context_char,question_char,context_length,question_length],[start_label,end_label],batch_size=8)
+# load data
+char_dim=64
+cont_limit=400
+ques_limit=50
+char_limit=16
+
+context_word = np.random.randint(0, 10000, (300, cont_limit))
+question_word = np.random.randint(0, 10000, (300, ques_limit))
+context_char = np.random.randint(0, 96, (300, cont_limit, char_limit))
+question_char = np.random.randint(0, 96, (300, ques_limit, char_limit))
+start_label = np.random.randint(0, 2, (300, cont_limit))
+end_label = np.random.randint(0, 2, (300, cont_limit))
+start_label_fin = np.argmax(start_label,axis=-1)
+end_label_fin = np.argmax(end_label,axis=-1)
+
+model.fit([context_word,question_word,context_char,question_char],[start_label, end_label, start_label_fin, end_label_fin],batch_size=8)
