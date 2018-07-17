@@ -53,6 +53,3 @@ def SegNet(image_size=(220, 178, 3)):
 
 model=SegNet()
 model.summary()
-
-import matplotlib.pyplot as plt
-plt.imshow
