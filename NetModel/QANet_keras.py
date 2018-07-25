@@ -9,7 +9,7 @@ from keras.optimizers import *
 from keras.callbacks import *
 from KerasLayer.layer_dropout import LayerDropout
 from keras.initializers import *
-
+K.square()
 regularizer = l2(3e-7)
 VarianceScaling(scale=1.0, mode='fan_in', distribution='normal', seed=2018)
 
