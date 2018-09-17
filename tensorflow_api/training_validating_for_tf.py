@@ -27,10 +27,8 @@ y_onehot = tf.one_hot(y, 10)
 n_class=10
 n_feature=512
 
-
 # 定义模型，复杂loss
 from tensorflow.contrib.keras import layers
-
 
 def VGG6(inputs, n_class=10):
     # Block 1

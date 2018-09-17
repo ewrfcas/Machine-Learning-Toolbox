@@ -31,3 +31,4 @@ with tqdm(total=len(images),desc='Loading images') as pbar:
     for req in requests:
         t_pool.putRequest(req)
     t_pool.wait()
+np.rot90()
